@@ -8,6 +8,7 @@ public class SpinWithMouse : MonoBehaviour
 
 	Transform mTrans;
 
+	public bool momentum = true;
 	public bool smoothDragStart = true;
 	public float momentumAmount = 35f;
 	bool dragging;
@@ -25,7 +26,7 @@ public class SpinWithMouse : MonoBehaviour
 	}
 
 	void OnPress(bool pressed) {
-		if(UICamera.currentTouchID == -1)
+		if(momentum && UICamera.currentTouchID == -1)
 			mPlane = new Plane(UICamera.currentCamera.transform.rotation * Vector3.back, mLastPos);
 		else if(UICamera.currentTouchID == -2) {
 			distance = Vector3.Distance(target != null ? target.position : mTrans.position, UICamera.currentCamera.transform.position);
@@ -72,9 +73,31 @@ public class SpinWithMouse : MonoBehaviour
 			y -= delta.y * distance * speed;
 			y = ClampAngle(y, -360, 360);
 
+			target.localRotation = Quaternion.Euler(Mathf.Abs(delta.normalized.y) * delta.y * speed, -Mathf.Abs(delta.normalized.x) * delta.x * speed, 0f) * target.localRotation;
 			Quaternion rotation = Quaternion.Euler(y, x, 0);
 			UICamera.currentCamera.transform.rotation = rotation;
 			UICamera.currentCamera.transform.position = (rotation * new Vector3(0, 0, -distance) + (target != null ? target.position : mTrans.position));
+		}
+			mTrans.localRotation = Quaternion.Euler(Mathf.Abs(delta.normalized.y) * delta.y * speed, -Mathf.Abs(delta.normalized.x) * delta.x * speed, 0f) * mTrans.localRotation;
+		else
+		{
+			mTrans.localRotation = Quaternion.Euler(Mathf.Abs(delta.normalized.y) * delta.y * speed, -Mathf.Abs(delta.normalized.x) * delta.x * speed, 0f) * mTrans.localRotation;
+		}
+		
+		if(Momentum()) {
+			Ray ray = smoothDragStart ?
+				UICamera.currentCamera.ScreenPointToRay(UICamera.currentTouch.pos - mDragStartOffset) :
+					UICamera.currentCamera.ScreenPointToRay(UICamera.currentTouch.pos);
+			
+			float dist = 0f;
+			
+			if (mPlane.Raycast(ray, out dist))
+			{
+				Vector2 currentPos = new Vector2(ray.GetPoint(dist).x, ray.GetPoint(dist).y);
+				Vector2 offset = currentPos - mLastPos;
+				mLastPos = currentPos;
+				mMomentum = Vector2.Lerp(mMomentum, mMomentum + offset * (0.01f * momentumAmount), 0.67f);
+			}
 		}
 	}
 	
@@ -119,5 +142,12 @@ public class SpinWithMouse : MonoBehaviour
 		if(angle < -360) angle += 360;
 		if(angle > 360f) angle -= 360;
 		return Mathf.Clamp(angle, min, max);
+	}
+
+	bool Momentum() {
+		if(!momentum) {
+			mMomentum = Vector2.zero;
+		}
+		return momentum;
 	}
 }
