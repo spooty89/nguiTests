@@ -8,6 +8,7 @@ public class SpinWithMouse : MonoBehaviour
 
 	Transform mTrans;
 
+	public bool momentum = true;
 	public bool smoothDragStart = true;
 	public float momentumAmount = 35f;
 	bool dragging;
@@ -22,7 +23,8 @@ public class SpinWithMouse : MonoBehaviour
 	}
 
 	void OnPress(bool pressed) {
-		mPlane = new Plane(UICamera.currentCamera.transform.rotation * Vector3.back, mLastPos);
+		if(momentum)
+			mPlane = new Plane(UICamera.currentCamera.transform.rotation * Vector3.back, mLastPos);
 	}
 
 	void OnDragStart() {
@@ -36,26 +38,27 @@ public class SpinWithMouse : MonoBehaviour
 
 		if (target != null)
 		{
-			target.localRotation = Quaternion.Euler(0.5f * delta.y * speed, -0.5f * delta.x * speed, 0f) * target.localRotation;
+			target.localRotation = Quaternion.Euler(Mathf.Abs(delta.normalized.y) * delta.y * speed, -Mathf.Abs(delta.normalized.x) * delta.x * speed, 0f) * target.localRotation;
 		}
 		else
 		{
-			mTrans.localRotation = Quaternion.Euler(0.5f * delta.y * speed, -0.5f * delta.x * speed, 0f) * mTrans.localRotation;
+			mTrans.localRotation = Quaternion.Euler(Mathf.Abs(delta.normalized.y) * delta.y * speed, -Mathf.Abs(delta.normalized.x) * delta.x * speed, 0f) * mTrans.localRotation;
 		}
 		
-		
-		Ray ray = smoothDragStart ?
-			UICamera.currentCamera.ScreenPointToRay(UICamera.currentTouch.pos - mDragStartOffset) :
-				UICamera.currentCamera.ScreenPointToRay(UICamera.currentTouch.pos);
-		
-		float dist = 0f;
-		
-		if (mPlane.Raycast(ray, out dist))
-		{
-			Vector2 currentPos = new Vector2(ray.GetPoint(dist).x, ray.GetPoint(dist).y);
-			Vector2 offset = currentPos - mLastPos;
-			mLastPos = currentPos;
-			mMomentum = Vector2.Lerp(mMomentum, mMomentum + offset * (0.01f * momentumAmount), 0.67f);
+		if(Momentum()) {
+			Ray ray = smoothDragStart ?
+				UICamera.currentCamera.ScreenPointToRay(UICamera.currentTouch.pos - mDragStartOffset) :
+					UICamera.currentCamera.ScreenPointToRay(UICamera.currentTouch.pos);
+			
+			float dist = 0f;
+			
+			if (mPlane.Raycast(ray, out dist))
+			{
+				Vector2 currentPos = new Vector2(ray.GetPoint(dist).x, ray.GetPoint(dist).y);
+				Vector2 offset = currentPos - mLastPos;
+				mLastPos = currentPos;
+				mMomentum = Vector2.Lerp(mMomentum, mMomentum + offset * (0.01f * momentumAmount), 0.67f);
+			}
 		}
 	}
 	
@@ -77,11 +80,11 @@ public class SpinWithMouse : MonoBehaviour
 				Vector3 offset = NGUIMath.SpringDampen(ref mMomentum, 9f, delta);
 				if (target != null)
 				{
-					target.localRotation = Quaternion.Euler(0.5f * offset.y * speed, -0.5f * offset.x * speed, 0f) * target.localRotation;
+					target.localRotation = Quaternion.Euler(Mathf.Abs(offset.normalized.y) * offset.y * speed, -Mathf.Abs(offset.normalized.x) * offset.x * speed, 0f) * target.localRotation;
 				}
 				else
 				{
-					mTrans.localRotation = Quaternion.Euler(0.5f * offset.y * speed, -0.5f * offset.x * speed, 0f) * mTrans.localRotation;
+					mTrans.localRotation = Quaternion.Euler(Mathf.Abs(offset.normalized.y) * offset.y * speed, -Mathf.Abs(offset.normalized.x) * offset.x * speed, 0f) * mTrans.localRotation;
 				}
 			}
 			else
@@ -94,5 +97,12 @@ public class SpinWithMouse : MonoBehaviour
 			// Dampen the momentum
 			NGUIMath.SpringDampen(ref mMomentum, 9f, delta);
 		}
+	}
+
+	bool Momentum() {
+		if(!momentum) {
+			mMomentum = Vector2.zero;
+		}
+		return momentum;
 	}
 }
