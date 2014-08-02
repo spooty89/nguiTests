@@ -24,14 +24,19 @@ public class SpinWithMouseEditor : Editor
 	{
 		GUILayout.Space(6f);
 		NGUIEditorTools.SetLabelWidth(86f);
-		
 		serializedObject.Update();
-		NGUIEditorTools.DrawProperty("Target", serializedObject, "target", true);
-		NGUIEditorTools.DrawProperty("Speed", serializedObject, "speed", true);
-		
-		SpinWithMouse swm = target as SpinWithMouse;
 
-		SerializedProperty sp = NGUIEditorTools.DrawProperty("Momentum", serializedObject, "momentum", true);
+		SpinWithMouse swm = target as SpinWithMouse;
+		SerializedProperty sp = NGUIEditorTools.DrawProperty("Target", serializedObject, "target", true);
+		if(sp.objectReferenceValue != null)
+			swm.target = (Transform)sp.objectReferenceValue;
+		else
+			swm.target = null;
+		sp = NGUIEditorTools.DrawProperty("Speed", serializedObject, "speed", true);
+		swm.speed = sp.floatValue;
+
+
+		sp = NGUIEditorTools.DrawProperty("Momentum", serializedObject, "momentum", true);
 		swm.momentum = sp.boolValue;
 		if (swm.momentum)
 		{

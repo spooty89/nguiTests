@@ -16,6 +16,8 @@ public class SpinWithMouse : MonoBehaviour
 	protected Vector2 mLastPos = Vector2.zero;
 	protected Vector2 mDragStartOffset = Vector2.zero;
 	protected Plane mPlane;
+	protected Vector3 mPoint;
+	protected GameObject releaseTransform;
 
 	protected float x, y;
 	protected float distance;
@@ -26,10 +28,15 @@ public class SpinWithMouse : MonoBehaviour
 	}
 
 	void OnPress(bool pressed) {
-		if(momentum && UICamera.currentTouchID == -1)
-			mPlane = new Plane(UICamera.currentCamera.transform.rotation * Vector3.back, mLastPos);
-		else if(UICamera.currentTouchID == -2) {
-			distance = Vector3.Distance(target != null ? target.position : mTrans.position, UICamera.currentCamera.transform.position);
+		mPlane = new Plane(UICamera.currentCamera.transform.rotation * Vector3.back, target != null ? target.position : mTrans.position);
+		if(UICamera.currentTouchID == -2) {
+
+			Ray ray = UICamera.currentCamera.ScreenPointToRay(new Vector3(Screen.width/2, Screen.height/2));
+
+			float dist;
+			mPlane.Raycast(ray, out dist);
+			mPoint = ray.GetPoint(dist);
+			distance = Vector3.Distance(UICamera.currentCamera.transform.position, mPoint);
 			
 			x = UICamera.currentCamera.transform.eulerAngles.y;
 			y = UICamera.currentCamera.transform.eulerAngles.x;
@@ -37,8 +44,10 @@ public class SpinWithMouse : MonoBehaviour
 	}
 
 	void OnDragStart() {
-		dragging = true;
-		mDragStartOffset = smoothDragStart ? UICamera.currentTouch.totalDelta : Vector2.zero;
+		if(UICamera.currentTouchID == -1) {
+			dragging = true;
+			mDragStartOffset = smoothDragStart ? UICamera.currentTouch.totalDelta : Vector2.zero;
+		}
 	}
 
 	void OnDrag (Vector2 delta)
@@ -47,62 +56,46 @@ public class SpinWithMouse : MonoBehaviour
 		if(UICamera.currentTouchID == -1) {
 			if (target != null)
 			{
-				target.localRotation = Quaternion.Euler(Mathf.Abs(delta.normalized.y) * delta.y * speed, -Mathf.Abs(delta.normalized.x) * delta.x * speed, 0f) * target.localRotation;
+				target.localRotation = Quaternion.Euler(UICamera.currentCamera.transform.TransformDirection(new Vector3(Mathf.Abs(delta.normalized.y) * delta.y * speed, -Mathf.Abs(delta.normalized.x) * delta.x * speed, 0f))) * target.localRotation;
 			}
 			else
 			{
-				mTrans.localRotation = Quaternion.Euler(Mathf.Abs(delta.normalized.y) * delta.y * speed, -Mathf.Abs(delta.normalized.x) * delta.x * speed, 0f) * mTrans.localRotation;
+				mTrans.localRotation = Quaternion.Euler(UICamera.currentCamera.transform.TransformDirection(new Vector3(Mathf.Abs(delta.normalized.y) * delta.y * speed, -Mathf.Abs(delta.normalized.x) * delta.x * speed, 0f))) * mTrans.localRotation;
 			}
 			
-			
-			Ray ray = smoothDragStart ?
-				UICamera.currentCamera.ScreenPointToRay(UICamera.currentTouch.pos - mDragStartOffset) :
-					UICamera.currentCamera.ScreenPointToRay(UICamera.currentTouch.pos);
-			
-			float dist = 0f;
-			
-			if (mPlane.Raycast(ray, out dist))
-			{
-				Vector2 currentPos = new Vector2(ray.GetPoint(dist).x, ray.GetPoint(dist).y);
-				Vector2 offset = currentPos - mLastPos;
-				mLastPos = currentPos;
-				mMomentum = Vector2.Lerp(mMomentum, mMomentum + offset * (0.01f * momentumAmount), 0.67f);
+			if(Momentum()) {
+				Ray ray = smoothDragStart ?
+					UICamera.currentCamera.ScreenPointToRay(UICamera.currentTouch.pos - mDragStartOffset) :
+						UICamera.currentCamera.ScreenPointToRay(UICamera.currentTouch.pos);
+				
+				float dist = 0f;
+				
+				if (mPlane.Raycast(ray, out dist))
+				{
+					Vector2 currentPos = new Vector2(ray.GetPoint(dist).x, ray.GetPoint(dist).y);
+					Vector2 offset = currentPos - mLastPos;
+					mLastPos = currentPos;
+					mMomentum = Vector2.Lerp(mMomentum, mMomentum + offset * (0.01f * momentumAmount), 0.67f);
+				}
 			}
 		} else if (UICamera.currentTouchID == -2) {
 			x += delta.x * distance * speed;
 			y -= delta.y * distance * speed;
 			y = ClampAngle(y, -360, 360);
 
-			target.localRotation = Quaternion.Euler(Mathf.Abs(delta.normalized.y) * delta.y * speed, -Mathf.Abs(delta.normalized.x) * delta.x * speed, 0f) * target.localRotation;
 			Quaternion rotation = Quaternion.Euler(y, x, 0);
 			UICamera.currentCamera.transform.rotation = rotation;
-			UICamera.currentCamera.transform.position = (rotation * new Vector3(0, 0, -distance) + (target != null ? target.position : mTrans.position));
-		}
-			mTrans.localRotation = Quaternion.Euler(Mathf.Abs(delta.normalized.y) * delta.y * speed, -Mathf.Abs(delta.normalized.x) * delta.x * speed, 0f) * mTrans.localRotation;
-		else
-		{
-			mTrans.localRotation = Quaternion.Euler(Mathf.Abs(delta.normalized.y) * delta.y * speed, -Mathf.Abs(delta.normalized.x) * delta.x * speed, 0f) * mTrans.localRotation;
-		}
-		
-		if(Momentum()) {
-			Ray ray = smoothDragStart ?
-				UICamera.currentCamera.ScreenPointToRay(UICamera.currentTouch.pos - mDragStartOffset) :
-					UICamera.currentCamera.ScreenPointToRay(UICamera.currentTouch.pos);
-			
-			float dist = 0f;
-			
-			if (mPlane.Raycast(ray, out dist))
-			{
-				Vector2 currentPos = new Vector2(ray.GetPoint(dist).x, ray.GetPoint(dist).y);
-				Vector2 offset = currentPos - mLastPos;
-				mLastPos = currentPos;
-				mMomentum = Vector2.Lerp(mMomentum, mMomentum + offset * (0.01f * momentumAmount), 0.67f);
-			}
+			UICamera.currentCamera.transform.position = (rotation * new Vector3(0, 0, -distance) + mPoint);
 		}
 	}
 	
 	void OnDragEnd ()
 	{
+		if(releaseTransform != null)
+			Destroy(releaseTransform);
+		releaseTransform = new GameObject();
+		releaseTransform.transform.position = UICamera.currentCamera.transform.position;
+		releaseTransform.transform.rotation = UICamera.currentCamera.transform.rotation;
 		dragging = false;
 	}
 
@@ -119,11 +112,11 @@ public class SpinWithMouse : MonoBehaviour
 				Vector3 offset = NGUIMath.SpringDampen(ref mMomentum, 9f, delta);
 				if (target != null)
 				{
-					target.localRotation = Quaternion.Euler(Mathf.Abs(offset.normalized.y) * offset.y * speed, -Mathf.Abs(offset.normalized.x) * offset.x * speed, 0f) * target.localRotation;
+					target.localRotation = Quaternion.Euler(releaseTransform.transform.TransformDirection(new Vector3(Mathf.Abs(offset.normalized.y) * offset.y * speed, -Mathf.Abs(offset.normalized.x) * offset.x * speed, 0f))) * target.localRotation;
 				}
 				else
 				{
-					mTrans.localRotation = Quaternion.Euler(Mathf.Abs(offset.normalized.y) * offset.y * speed, -Mathf.Abs(offset.normalized.x) * offset.x * speed, 0f) * mTrans.localRotation;
+					mTrans.localRotation = Quaternion.Euler(releaseTransform.transform.TransformDirection(new Vector3(Mathf.Abs(offset.normalized.y) * offset.y * speed, -Mathf.Abs(offset.normalized.x) * offset.x * speed, 0f))) * mTrans.localRotation;
 				}
 			}
 			else
